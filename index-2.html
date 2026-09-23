@@ -1,0 +1,1212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QuizReel Studio – Voice-guided quiz slideshows</title>
+
+<!-- Fonts: Bangla-capable display faces + a digital face for the clock -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+Da+2:wght@500;700;800&family=Hind+Siliguri:wght@400;500;600;700&family=Noto+Serif+Bengali:wght@500;700;800&family=Orbitron:wght@700;800&display=swap" rel="stylesheet">
+<!-- Icons (optional: every button also has a text label, so the app works if this fails to load) -->
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+
+<style>
+/* =====================================================================
+   1. APP CHROME (the editor UI around the stage)
+   ===================================================================== */
+:root{
+  --ui-bg:#151827; --ui-panel:#1d2136; --ui-raised:#262b47; --ui-line:#333a5e;
+  --ui-text:#eceefb; --ui-muted:#98a0c8; --ui-accent:#7b8cff; --ui-accent-ink:#0f1330;
+  --ui-rec:#ff4d63; --ui-ok:#3ddc97; --ui-warn:#ffb84d;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--ui-bg);color:var(--ui-text);font:14px/1.5 'Hind Siliguri',system-ui,-apple-system,'Segoe UI',sans-serif}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--ui-accent);outline-offset:2px}
+[hidden]{display:none!important}
+i[data-lucide],svg.lucide{width:16px;height:16px;flex:none;vertical-align:-3px}
+
+.topbar{height:52px;display:flex;align-items:center;gap:12px;padding:0 18px;border-bottom:1px solid var(--ui-line);background:var(--ui-panel)}
+.brand{font-weight:700;font-size:16px;letter-spacing:.01em;display:flex;align-items:center;gap:10px}
+.brand .dot{width:12px;height:12px;border-radius:50%;background:var(--ui-rec);box-shadow:0 0 0 4px rgba(255,77,99,.2)}
+.topbar .sub{color:var(--ui-muted);font-size:13px}
+
+.app{display:grid;grid-template-columns:minmax(340px,430px) 1fr;height:calc(100% - 52px)}
+.side{border-right:1px solid var(--ui-line);background:var(--ui-panel);display:flex;flex-direction:column;min-height:0}
+.tabs{display:flex;border-bottom:1px solid var(--ui-line)}
+.tabs button{flex:1;background:none;border:0;border-bottom:2px solid transparent;padding:11px 4px;color:var(--ui-muted);font-weight:600;display:flex;gap:6px;align-items:center;justify-content:center}
+.tabs button[aria-selected=true]{color:var(--ui-text);border-bottom-color:var(--ui-accent)}
+.tab{padding:16px;overflow:auto;flex:1;min-height:0}
+.main{overflow:auto;padding:16px 20px;min-width:0}
+
+h2{font-size:15px;margin:0 0 10px}
+h3{font-size:13px;margin:18px 0 8px;color:var(--ui-muted);font-weight:600}
+.card{background:var(--ui-bg);border:1px solid var(--ui-line);border-radius:10px;padding:12px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.grow{flex:1;min-width:0}
+.muted{color:var(--ui-muted);font-size:12.5px}
+label.field{display:block;margin-bottom:10px}
+label.field>span{display:block;font-size:12.5px;color:var(--ui-muted);margin-bottom:4px}
+
+input[type=text],input[type=password],select,textarea{width:100%;background:var(--ui-bg);border:1px solid var(--ui-line);border-radius:8px;padding:8px 10px}
+textarea{min-height:190px;resize:vertical;font-family:ui-monospace,Menlo,Consolas,'Hind Siliguri',monospace;font-size:12.5px;line-height:1.55}
+input[type=range]{width:100%;accent-color:var(--ui-accent)}
+input[type=checkbox]{accent-color:var(--ui-accent);width:16px;height:16px}
+.check{display:flex;gap:8px;align-items:center;margin:6px 0}
+
+.btn{display:inline-flex;align-items:center;gap:7px;background:var(--ui-raised);border:1px solid var(--ui-line);border-radius:8px;padding:8px 12px;font-weight:600}
+.btn:hover{border-color:var(--ui-accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.primary{background:var(--ui-accent);color:var(--ui-accent-ink);border-color:var(--ui-accent)}
+.btn.rec{background:var(--ui-rec);border-color:var(--ui-rec);color:#fff}
+.btn.sm{padding:5px 9px;font-size:12.5px}
+.btn.ghost{background:transparent}
+.btn.danger:hover{border-color:var(--ui-rec);color:var(--ui-rec)}
+
+pre.tpl{margin:0;padding:10px;background:#0f1120;border-radius:8px;overflow:auto;font-size:12px;line-height:1.5;max-height:190px}
+.msg{margin-top:10px;font-size:13px;border-radius:8px;padding:8px 10px}
+.msg.ok{background:rgba(61,220,151,.12);color:var(--ui-ok)}
+.msg.err{background:rgba(255,77,99,.12);color:#ff97a4}
+.msg ul{margin:4px 0 0;padding-left:18px}
+.banner{background:rgba(255,184,77,.12);color:var(--ui-warn);border-radius:8px;padding:8px 10px;margin-bottom:10px;display:flex;gap:8px;align-items:center;justify-content:space-between}
+
+/* segmented + swatch pickers */
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button{background:var(--ui-bg);border:1px solid var(--ui-line);border-radius:8px;padding:7px 12px;font-weight:600;color:var(--ui-muted)}
+.seg button[aria-pressed=true]{border-color:var(--ui-accent);color:var(--ui-text);background:var(--ui-raised)}
+.swatches{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.swatches button{border:2px solid transparent;border-radius:10px;height:58px;color:#fff;font-weight:700;text-shadow:0 1px 3px rgba(0,0,0,.5);display:flex;align-items:flex-end;padding:6px 8px}
+.swatches button[aria-pressed=true]{border-color:#fff;box-shadow:0 0 0 2px var(--ui-accent)}
+
+/* library */
+.qcard{display:flex;gap:10px;align-items:center;justify-content:space-between;margin-bottom:8px}
+.qcard.current{border-color:var(--ui-accent)}
+.qcard h4{margin:0;font-size:14px}
+.qcard .acts{display:flex;gap:6px;flex-wrap:wrap}
+.empty{text-align:center;color:var(--ui-muted);padding:26px 10px}
+
+/* api keys */
+.keyrow{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;margin-bottom:8px}
+.keyrow .n{width:24px;height:24px;border-radius:50%;background:var(--ui-raised);display:grid;place-items:center;font-size:12px;font-weight:700}
+.kstat{grid-column:2/4;font-size:12px;color:var(--ui-muted);margin-top:-4px}
+.kstat.use{color:var(--ui-accent)} .kstat.bad{color:#ff97a4} .kstat.cool{color:var(--ui-warn)}
+
+/* preview column */
+.pv-head{display:flex;justify-content:space-between;gap:10px;align-items:baseline;margin-bottom:10px;flex-wrap:wrap}
+.pv-head h1{font-size:17px;margin:0}
+.stageArea{height:clamp(300px,58vh,780px);display:grid;place-items:center;background:
+  repeating-conic-gradient(#0e1020 0 25%,#12152a 0 50%) 0 0/24px 24px;border-radius:12px;border:1px solid var(--ui-line)}
+.controls{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.gen{margin-top:4px}
+.bar{height:8px;border-radius:5px;background:var(--ui-raised);overflow:hidden;margin:8px 0 6px}
+.bar>i{display:block;height:100%;width:0;background:var(--ui-accent);transition:width .3s}
+.alist{max-height:220px;overflow:auto;display:grid;gap:4px;margin-top:8px}
+.arow{display:flex;gap:8px;align-items:center;font-size:12.5px;background:var(--ui-panel);border-radius:8px;padding:5px 8px}
+.arow .t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chip{padding:1px 8px;border-radius:99px;font-size:11.5px;font-weight:600;background:var(--ui-raised);color:var(--ui-muted)}
+.chip.ok{background:rgba(61,220,151,.15);color:var(--ui-ok)}
+.chip.fail{background:rgba(255,77,99,.15);color:#ff97a4}
+.chip.gen{background:rgba(123,140,255,.18);color:var(--ui-accent)}
+
+/* toasts */
+#toasts{position:fixed;right:16px;bottom:16px;display:grid;gap:8px;z-index:9999;max-width:min(380px,calc(100vw - 32px))}
+.toast{padding:10px 14px;border-radius:10px;background:var(--ui-raised);border:1px solid var(--ui-line);border-left:4px solid var(--ui-accent);box-shadow:0 8px 30px rgba(0,0,0,.4);animation:tin .25s ease}
+.toast.error{border-left-color:var(--ui-rec)} .toast.warn{border-left-color:var(--ui-warn)} .toast.success{border-left-color:var(--ui-ok)}
+.toast.out{opacity:0;transform:translateX(20px);transition:.3s}
+@keyframes tin{from{opacity:0;transform:translateY(10px)}}
+
+@media (max-width:900px){
+  .app{grid-template-columns:1fr;height:auto}
+  .side{border-right:0;border-bottom:1px solid var(--ui-line)}
+  .tab{max-height:none}
+  .stageArea{height:clamp(260px,52vh,600px)}
+}
+
+/* =====================================================================
+   2. STAGE (the 16:9 / 9:16 canvas that gets screen-recorded)
+   - Sized by JS (fitStage) to the chosen ratio.
+   - container-type:size makes 1cqw = 1% of stage width, so EVERY size
+     inside scales perfectly at any resolution. --u is the base unit.
+   ===================================================================== */
+#stageWrap{width:100%;height:100%;display:grid;place-items:center;background:transparent}
+#stageWrap:fullscreen{background:#000}
+#stageWrap:-webkit-full-screen{background:#000}
+.stage{--u:1cqw;position:relative;container-type:size;overflow:hidden;background:var(--bg);color:var(--q-color);font-family:var(--font);border-radius:8px;user-select:none;box-shadow:0 18px 50px rgba(0,0,0,.5)}
+.stage.ratio-portrait{--u:1.78cqw}
+#stageWrap:fullscreen .stage{border-radius:0;box-shadow:none}
+#stageWrap:fullscreen .stage.running{cursor:none}
+
+/* ---------- theme tokens ---------- */
+.theme-kids{--font:'Baloo Da 2','Hind Siliguri',sans-serif;--bg:linear-gradient(160deg,#48cfff,#8b7bff 55%,#ff8bd0);--q-color:#fff;--q-shadow:0 calc(var(--u)*.35) 0 rgba(60,30,120,.35);
+  --card-bg:#fff;--card-text:#33306b;--card-border:#ffd23f;--accent:#ffd23f;--accent-ink:#33306b;--track:rgba(255,255,255,.3);--correct:#22c55e;--correct-ink:#fff;--badge-bg:#ffd23f;--badge-text:#33306b;--tile:12cqw}
+.theme-islamic{--font:'Noto Serif Bengali','Hind Siliguri',serif;--bg:radial-gradient(circle at 50% 0,#0e7a5c,#063b2f 65%,#04231c);--q-color:#fff4d1;--q-shadow:0 calc(var(--u)*.2) calc(var(--u)*.8) rgba(0,0,0,.5);
+  --card-bg:#fff8e6;--card-text:#063b2f;--card-border:#d4af37;--accent:#e6c35c;--accent-ink:#063b2f;--track:rgba(255,244,209,.2);--correct:#16a34a;--correct-ink:#fff;--badge-bg:#d4af37;--badge-text:#063b2f;--tile:12cqw}
+.theme-edu,.theme-custom{--font:'Hind Siliguri',system-ui,sans-serif;--bg:linear-gradient(135deg,#0b1d4a,#1c3d8f 60%,#2563eb);--q-color:#fff;--q-shadow:none;
+  --card-bg:rgba(255,255,255,.12);--card-text:#fff;--card-border:rgba(255,255,255,.3);--accent:#38bdf8;--accent-ink:#06213a;--track:rgba(255,255,255,.2);--correct:#22c55e;--correct-ink:#04240f;--badge-bg:#38bdf8;--badge-text:#06213a;--tile:4cqw}
+.theme-horror{--font:'Noto Serif Bengali','Hind Siliguri',serif;--bg:radial-gradient(circle at 50% 40%,#2a0a0a,#0a0000 72%);--q-color:#f6d7d7;--q-shadow:0 0 calc(var(--u)*1.6) rgba(220,20,20,.7);
+  --card-bg:rgba(30,0,0,.75);--card-text:#f3caca;--card-border:#7f1d1d;--accent:#ef4444;--accent-ink:#2a0000;--track:rgba(239,68,68,.22);--correct:#a3e635;--correct-ink:#1a2a00;--badge-bg:#7f1d1d;--badge-text:#ffdede;--tile:12cqw}
+.theme-fun{--font:'Baloo Da 2','Hind Siliguri',sans-serif;--bg:linear-gradient(135deg,#7f00ff,#d100d1 55%,#ff8a00);--q-color:#fff;--q-shadow:0 calc(var(--u)*.4) 0 rgba(60,0,90,.4);
+  --card-bg:#fff;--card-text:#4b0082;--card-border:#ffe600;--accent:#ffe600;--accent-ink:#4b0082;--track:rgba(255,255,255,.28);--correct:#00d26a;--correct-ink:#fff;--badge-bg:#ffe600;--badge-text:#4b0082;--tile:12cqw}
+
+/* ---------- animated background layers ---------- */
+.fx,.bgimg{position:absolute;pointer-events:none}
+.fx{inset:-14cqw}
+.bgimg{inset:0;background-size:cover;background-position:center;display:none}
+.theme-custom .bgimg{display:block}
+.theme-custom .fx{background:linear-gradient(rgba(0,0,0,.42),rgba(0,0,0,.55));animation:none;inset:0}
+@keyframes slide{to{transform:translate(var(--tile),var(--tile))}}
+.theme-kids .fx{background:
+  radial-gradient(circle at 12% 22%,rgba(255,255,255,.4) 0 4%,transparent 4.5%),
+  radial-gradient(circle at 86% 30%,rgba(255,255,255,.3) 0 6%,transparent 6.5%),
+  radial-gradient(circle at 70% 85%,rgba(255,255,255,.35) 0 3%,transparent 3.5%),
+  radial-gradient(circle at 25% 80%,rgba(255,255,255,.25) 0 7%,transparent 7.5%);animation:drift 9s ease-in-out infinite alternate}
+@keyframes drift{to{transform:translateY(-3%) rotate(1.5deg)}}
+.theme-islamic .fx{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'%3E%3Cg fill='none' stroke='%23d4af37' stroke-opacity='.28' stroke-width='1.4'%3E%3Crect x='20' y='20' width='40' height='40'/%3E%3Crect x='20' y='20' width='40' height='40' transform='rotate(45 40 40)'/%3E%3Ccircle cx='40' cy='40' r='10'/%3E%3C/g%3E%3C/svg%3E");background-size:12cqw 12cqw;animation:slide 40s linear infinite}
+.theme-edu .fx{background-image:linear-gradient(rgba(255,255,255,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.07) 1px,transparent 1px);background-size:4cqw 4cqw;animation:slide 24s linear infinite}
+.theme-fun .fx{background-image:radial-gradient(#ffe600 14%,transparent 15%),radial-gradient(#fff 10%,transparent 11%);background-size:12cqw 12cqw;background-position:0 0,6cqw 6cqw;opacity:.32;animation:slide 18s linear infinite}
+.theme-horror .fx{background:radial-gradient(60% 40% at 20% 80%,rgba(140,0,0,.4),transparent),radial-gradient(50% 40% at 85% 25%,rgba(90,0,0,.45),transparent);filter:blur(2cqw);animation:fog 14s ease-in-out infinite alternate}
+@keyframes fog{to{transform:translate(4cqw,-3cqw) scale(1.08)}}
+.theme-horror::after{content:'';position:absolute;inset:0;pointer-events:none;z-index:5;background:radial-gradient(ellipse at center,transparent 45%,rgba(0,0,0,.85));animation:flicker 5s steps(1) infinite}
+@keyframes flicker{0%,92%,100%{opacity:1}93%{opacity:.55}94%{opacity:1}96%{opacity:.75}}
+.stage.flash::before{content:'';position:absolute;inset:0;z-index:6;background:#ff2a2a;animation:flash .7s ease-out forwards;pointer-events:none}
+@keyframes flash{from{opacity:.55}to{opacity:0}}
+
+/* ---------- layout ---------- */
+.content{position:absolute;inset:0;z-index:2;display:grid;padding:calc(var(--u)*4);gap:calc(var(--u)*2.4)}
+.ratio-landscape .content{grid-template-columns:1fr auto;grid-template-rows:auto auto 1fr;grid-template-areas:"badge badge" "question timer" "options options"}
+.ratio-portrait .content{grid-template-columns:1fr;grid-template-rows:auto auto auto 1fr;grid-template-areas:"badge" "question" "timer" "options";padding:calc(var(--u)*5) calc(var(--u)*4) calc(var(--u)*9)}
+
+.badge{grid-area:badge;justify-self:start;background:var(--badge-bg);color:var(--badge-text);padding:calc(var(--u)*.6) calc(var(--u)*2.4);border-radius:99px;font-size:calc(var(--u)*2.3);font-weight:700}
+.badge.off{visibility:hidden}
+.ratio-portrait .badge{justify-self:center}
+
+.qtext{grid-area:question;align-self:center;font-size:calc(var(--u)*4.4*var(--qscale,1));font-weight:800;line-height:1.3;text-shadow:var(--q-shadow);text-wrap:balance}
+.ratio-portrait .qtext{font-size:calc(var(--u)*4.1*var(--qscale,1));text-align:center}
+.qtext.in{animation:qin .7s cubic-bezier(.2,.9,.3,1) backwards}
+@keyframes qin{from{opacity:0;transform:translateY(calc(var(--u)*-3)) scale(.96)}}
+
+.options{grid-area:options;display:grid;gap:calc(var(--u)*2);align-content:center}
+.ratio-landscape .options{grid-template-columns:1fr 1fr}
+.opt{display:flex;align-items:center;gap:calc(var(--u)*1.8);background:var(--card-bg);color:var(--card-text);border:calc(var(--u)*.28) solid var(--card-border);border-radius:calc(var(--u)*2.4);padding:calc(var(--u)*1.7) calc(var(--u)*2.4);font-size:calc(var(--u)*3.1*var(--oscale,1));font-weight:700;line-height:1.25;backdrop-filter:blur(4px);opacity:0;transition:opacity .5s,transform .5s,filter .5s}
+.opt.show{opacity:1;animation:pop .6s cubic-bezier(.2,1.4,.4,1) backwards;animation-delay:calc(var(--i)*.16s + .25s)}
+@keyframes pop{from{opacity:0;transform:translateY(calc(var(--u)*4)) scale(.85)}}
+.opt .key{flex:none;width:calc(var(--u)*5);height:calc(var(--u)*5);border-radius:50%;background:var(--badge-bg);color:var(--badge-text);display:grid;place-items:center;font-size:.85em}
+.opt .txt{flex:1;min-width:0;overflow-wrap:anywhere}
+.opt.wrong{opacity:.28;filter:grayscale(.7);transform:scale(.96)}
+.opt.correct{opacity:1;background:var(--correct);color:var(--correct-ink);border-color:#fff;box-shadow:0 0 calc(var(--u)*5) var(--correct);animation:win 1s ease-in-out infinite;z-index:3}
+.opt.correct::after{content:'✓';font-size:1.3em;font-weight:800}
+@keyframes win{0%,100%{transform:scale(1.03)}50%{transform:scale(1.08)}}
+.stage.static .opt,.stage.static .qtext{animation:none!important}
+
+/* ---------- timer (4 styles, switched with data-timer) ---------- */
+.tbox{grid-area:timer;align-self:center;justify-self:center;display:grid;place-items:center;opacity:0;transform:scale(.5) rotate(-8deg);transition:opacity .4s,transform .5s cubic-bezier(.2,1.5,.4,1);min-width:calc(var(--u)*17);min-height:calc(var(--u)*17)}
+.tbox.on{opacity:1;transform:none}
+.tbox.urgent{animation:beat 1s ease-in-out infinite}
+@keyframes beat{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
+.tbox.urgent .tnum,.tbox.urgent .tdig{color:#ff4b4b!important}
+.tbox .t{display:none;position:relative}
+.stage[data-timer=ring] .t-ring,.stage[data-timer=digital] .t-digital,.stage[data-timer=bar] .t-bar,.stage[data-timer=pie] .t-pie{display:grid}
+.t{place-items:center}
+.t-ring{width:calc(var(--u)*17);height:calc(var(--u)*17)}
+.t-ring svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg)}
+.t-ring circle{fill:none;stroke-width:9;stroke-linecap:round}
+.t-ring .track{stroke:var(--track)}
+.t-ring .prog{stroke:var(--accent);stroke-dasharray:100;stroke-dashoffset:0}
+.t-ring .tnum{font-size:calc(var(--u)*7.5);font-weight:800;text-shadow:var(--q-shadow);position:relative}
+.t-digital{font-family:'Orbitron',monospace;background:#0b0b10;color:var(--accent);border:calc(var(--u)*.35) solid var(--accent);border-radius:calc(var(--u)*1.6);padding:calc(var(--u)*1.6) calc(var(--u)*2.8)}
+.t-digital .tdig{font-size:calc(var(--u)*6);font-weight:800;letter-spacing:.06em;text-shadow:0 0 calc(var(--u)*1.2) var(--accent)}
+.t-bar{width:calc(var(--u)*13);height:calc(var(--u)*13);border-radius:calc(var(--u)*3);background:var(--accent);color:var(--accent-ink)}
+.t-bar .tnum{font-size:calc(var(--u)*7.5);font-weight:800}
+.t-pie{width:calc(var(--u)*17);height:calc(var(--u)*17);border-radius:50%;background:conic-gradient(var(--accent) calc(var(--p,1)*360deg),var(--track) 0)}
+.t-pie::before{content:'';position:absolute;inset:16%;border-radius:50%;background:rgba(0,0,0,.6)}
+.t-pie .tnum{position:relative;color:#fff;font-size:calc(var(--u)*6.5);font-weight:800}
+.bartrack{position:absolute;left:0;right:0;bottom:0;height:calc(var(--u)*1.8);background:rgba(0,0,0,.35);z-index:4;opacity:0;transition:opacity .3s;display:none}
+.stage[data-timer=bar] .bartrack{display:block}
+.bartrack.on{opacity:1}
+.barfill{height:100%;width:100%;background:var(--accent)}
+
+/* ---------- overlays ---------- */
+.overlay{position:absolute;inset:0;z-index:20;display:none;place-items:center;text-align:center;padding:calc(var(--u)*6);background:rgba(0,0,0,.38);backdrop-filter:blur(calc(var(--u)*.5))}
+.overlay.show{display:grid}
+.ov-title{font-size:calc(var(--u)*7);font-weight:800;color:var(--accent);text-shadow:var(--q-shadow);animation:qin .8s cubic-bezier(.2,.9,.3,1) backwards}
+.ov-sub{font-size:calc(var(--u)*2.8);margin-top:calc(var(--u)*1.5);color:var(--q-color);opacity:.9}
+.pre{z-index:30;background:rgba(0,0,0,.72);backdrop-filter:blur(calc(var(--u)*.8));color:#fff}
+.pre .num{font-size:calc(var(--u)*28);font-weight:800;line-height:1;font-family:'Orbitron','Baloo Da 2',sans-serif;animation:preNum 1s ease-out}
+@keyframes preNum{from{opacity:0;transform:scale(1.9)}30%{opacity:1}to{transform:scale(1)}}
+.pre .lbl{font-size:calc(var(--u)*2.8);opacity:.85;margin-top:calc(var(--u)*2)}
+#confetti{position:absolute;inset:0;z-index:10;pointer-events:none;overflow:hidden}
+#confetti i{position:absolute;top:0;border-radius:2px;animation:fall linear forwards}
+@keyframes fall{from{transform:translate(0,-10cqh) rotate(0)}to{transform:translate(var(--dx),110cqh) rotate(var(--r))}}
+
+@media (prefers-reduced-motion:reduce){ .toast{animation:none} }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand"><span class="dot"></span>QuizReel Studio</div>
+  <div class="sub">Quiz JSON → voice-over slideshow for YouTube &amp; Shorts</div>
+</header>
+
+<div class="app">
+  <!-- ============================ SIDE PANEL ============================ -->
+  <aside class="side">
+    <nav class="tabs" role="tablist">
+      <button role="tab" data-tab="quiz" aria-selected="true"><i data-lucide="file-json"></i>Quiz</button>
+      <button role="tab" data-tab="library" aria-selected="false"><i data-lucide="library"></i>Library</button>
+      <button role="tab" data-tab="design" aria-selected="false"><i data-lucide="palette"></i>Design</button>
+      <button role="tab" data-tab="api" aria-selected="false"><i data-lucide="key-round"></i>API &amp; Voice</button>
+    </nav>
+
+    <!-- ---------- Quiz input ---------- -->
+    <section class="tab" id="tab-quiz">
+      <div class="banner" id="editBanner" hidden><span id="editBannerText"></span><button class="btn sm" id="cancelEdit">Cancel edit</button></div>
+      <label class="field"><span>Quiz title</span><input type="text" id="quizTitle" placeholder="e.g. সাধারণ জ্ঞান – পর্ব ১"></label>
+      <label class="field"><span>Quiz JSON</span><textarea id="jsonInput" spellcheck="false" placeholder='Paste your quiz JSON here…'></textarea></label>
+      <div class="row">
+        <button class="btn" id="uploadBtn"><i data-lucide="upload"></i>Upload .json</button>
+        <input type="file" id="fileInput" accept=".json,application/json" hidden>
+        <button class="btn" id="sampleBtn">Load sample</button>
+        <button class="btn" id="validateBtn"><i data-lucide="check"></i>Validate</button>
+        <button class="btn primary" id="saveBtn">Save &amp; use</button>
+      </div>
+      <div id="valMsg"></div>
+
+      <h3>Required format</h3>
+      <div class="card">
+        <pre class="tpl" id="tplPre"></pre>
+        <div class="row" style="margin-top:8px;justify-content:space-between">
+          <span class="muted">2–6 options · <code>answer</code> must match an option · <code>time</code> in seconds</span>
+          <button class="btn sm" id="copyTpl"><i data-lucide="copy"></i>Copy template</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- Library ---------- -->
+    <section class="tab" id="tab-library" hidden>
+      <h2>Saved quizzes</h2>
+      <div id="libList"></div>
+    </section>
+
+    <!-- ---------- Design ---------- -->
+    <section class="tab" id="tab-design" hidden>
+      <h3 style="margin-top:0">Format</h3>
+      <div class="seg" id="segRatio">
+        <button data-ratio="landscape">16:9 YouTube</button>
+        <button data-ratio="portrait">9:16 Shorts / Reels</button>
+      </div>
+
+      <h3>Theme</h3>
+      <div class="swatches" id="swThemes">
+        <button data-theme="edu" style="background:linear-gradient(135deg,#0b1d4a,#2563eb)">Educational</button>
+        <button data-theme="kids" style="background:linear-gradient(160deg,#48cfff,#ff8bd0)">Kids</button>
+        <button data-theme="islamic" style="background:radial-gradient(circle at 50% 0,#0e7a5c,#04231c)">Islamic</button>
+        <button data-theme="horror" style="background:radial-gradient(circle,#4a0f0f,#050000)">Horror</button>
+        <button data-theme="fun" style="background:linear-gradient(135deg,#7f00ff,#ff8a00)">Fun</button>
+        <button data-theme="custom" style="background:#3b4266">Custom image</button>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button class="btn sm" id="bgBtn"><i data-lucide="upload"></i>Upload background</button>
+        <button class="btn sm ghost" id="bgClear">Remove</button>
+        <input type="file" id="bgInput" accept="image/*" hidden>
+      </div>
+
+      <h3>Timer style</h3>
+      <div class="seg" id="segTimer">
+        <button data-timer="ring">Circular bar</button>
+        <button data-timer="digital">Digital</button>
+        <button data-timer="bar">Progress bar</button>
+        <button data-timer="pie">Pie</button>
+      </div>
+
+      <h3>On screen</h3>
+      <label class="check"><input type="checkbox" id="optCounter"> Show question counter</label>
+      <label class="check"><input type="checkbox" id="optFs"> Enter fullscreen when recording starts</label>
+      <label class="field" style="margin-top:8px"><span>Closing card text</span><input type="text" id="optOutro"></label>
+
+      <h3>Sound levels</h3>
+      <label class="field"><span>Voice-over</span><input type="range" id="volVoice" min="0" max="1" step=".05"></label>
+      <label class="field"><span>Tick-tock</span><input type="range" id="volTick" min="0" max="1" step=".05"></label>
+    </section>
+
+    <!-- ---------- API & Voice ---------- -->
+    <section class="tab" id="tab-api" hidden>
+      <h2>Google AI Studio API keys</h2>
+      <p class="muted" style="margin-top:0">Up to 5 keys. If a key hits its quota or errors, the next one is used automatically. Keys stay in this browser only (localStorage).</p>
+      <div id="keyList"></div>
+
+      <h3>Voice</h3>
+      <label class="field"><span>Voice persona (used for every clip)</span><select id="voiceSel"></select></label>
+      <label class="field"><span>TTS model</span>
+        <select id="modelSel">
+          <option value="gemini-2.5-flash-preview-tts">gemini-2.5-flash-preview-tts (fast)</option>
+          <option value="gemini-2.5-pro-preview-tts">gemini-2.5-pro-preview-tts (higher quality)</option>
+        </select>
+      </label>
+      <label class="field"><span>Spoken labels</span>
+        <select id="langSel">
+          <option value="bn">Bangla – “অপশন ১…”, “সঠিক উত্তর: …”</option>
+          <option value="en">English – “Option 1…”, “Correct answer: …”</option>
+        </select>
+      </label>
+
+      <h3>Audio cache</h3>
+      <div class="card row" style="justify-content:space-between">
+        <span class="muted" id="cacheInfo">–</span>
+        <button class="btn sm danger" id="clearCache"><i data-lucide="trash-2"></i>Clear cache</button>
+      </div>
+    </section>
+  </aside>
+
+  <!-- ============================ PREVIEW / STAGE ============================ -->
+  <main class="main">
+    <div class="pv-head">
+      <h1 id="curTitle">No quiz selected</h1>
+      <span class="muted" id="curMeta"></span>
+    </div>
+
+    <div class="stageArea">
+      <div id="stageWrap">
+        <div class="stage theme-edu ratio-landscape" id="stage" data-timer="ring">
+          <div class="bgimg" id="bgimg"></div>
+          <div class="fx"></div>
+          <div class="content">
+            <div class="badge" id="qBadge"></div>
+            <div class="qtext" id="qText"></div>
+            <div class="tbox" id="tbox">
+              <div class="t t-ring"><svg viewBox="0 0 100 100"><circle class="track" cx="50" cy="50" r="44"/><circle class="prog" id="ringProg" cx="50" cy="50" r="44" pathLength="100"/></svg><b class="tnum">0</b></div>
+              <div class="t t-digital"><span class="tdig">00:00</span></div>
+              <div class="t t-bar"><b class="tnum">0</b></div>
+              <div class="t t-pie" id="pie"><b class="tnum">0</b></div>
+            </div>
+            <div class="options" id="qOptions"></div>
+          </div>
+          <div class="bartrack" id="barTrack"><div class="barfill" id="barFill"></div></div>
+          <div id="confetti"></div>
+          <div class="overlay" id="overlay"><div><div class="ov-title" id="ovTitle"></div><div class="ov-sub" id="ovSub"></div></div></div>
+          <div class="overlay pre" id="pre"><div><div class="num" id="preNum">3</div><div class="lbl" id="preLbl"></div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="btn" id="genBtn"><i data-lucide="mic"></i><span id="genLabel">Generate audio</span></button>
+      <button class="btn rec" id="recBtn"><i data-lucide="circle"></i>Start recording</button>
+      <button class="btn" id="prevBtn"><i data-lucide="play"></i>Preview</button>
+      <button class="btn" id="stopBtn" hidden><i data-lucide="square"></i>Stop</button>
+      <button class="btn" id="fsBtn"><i data-lucide="maximize"></i>Fullscreen</button>
+    </div>
+    <div class="muted">Shortcuts: <b>F</b> fullscreen · <b>S</b> stop. “Preview” runs the timeline without needing voice-overs.</div>
+
+    <div class="card gen">
+      <div class="row" style="justify-content:space-between"><b id="genTitle">Voice-overs</b><span class="muted" id="genSummary"></span></div>
+      <div class="bar"><i id="genBar"></i></div>
+      <div class="muted" id="genText">Add a quiz, then generate audio before recording.</div>
+      <div class="alist" id="audioList"></div>
+    </div>
+  </main>
+</div>
+
+<div id="toasts" aria-live="polite"></div>
+
+<script>
+'use strict';
+/* =====================================================================
+   0. SMALL HELPERS
+   ===================================================================== */
+const $  = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const BN = '০১২৩৪৫৬৭৮৯';
+const toBn = n => String(n).replace(/\d/g, d => BN[d]);
+const abortErr = () => new DOMException('Aborted', 'AbortError');
+const icons = () => { if (window.lucide) lucide.createIcons(); };
+
+/** Abortable sleep – every wait in the timeline uses this so "Stop" is instant. */
+function sleep(ms, signal) {
+  return new Promise((res, rej) => {
+    if (signal && signal.aborted) return rej(abortErr());
+    const onAbort = () => { clearTimeout(t); rej(abortErr()); };
+    const t = setTimeout(() => { signal && signal.removeEventListener('abort', onAbort); res(); }, ms);
+    signal && signal.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
+/** Tiny fast string hash (cyrb53) → used for audio cache keys. */
+function hash(str, seed = 0) {
+  let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
+  for (let i = 0, ch; i < str.length; i++) {
+    ch = str.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761); h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
+}
+
+/** Toast notifications: type = info | success | warn | error */
+function toast(msg, type = 'info', ms = 4200) {
+  const el = document.createElement('div');
+  el.className = 'toast ' + type; el.textContent = msg;
+  $('#toasts').appendChild(el);
+  setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 300); }, ms);
+}
+
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); }
+  catch { const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch {} ta.remove(); }
+}
+
+/* =====================================================================
+   1. STORAGE
+   localStorage → keys, settings, quiz history (small JSON).
+   IndexedDB    → audio clips + background image. Browsers cap localStorage
+                  at ~5 MB, which only fits a few Base64 voice clips, so audio
+                  lives in IndexedDB (still 100% local, no backend).
+   ===================================================================== */
+const LS = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { toast('Browser storage is full or blocked.', 'error'); return false; } }
+};
+
+const DB = {
+  db: null, mem: { audio: new Map(), kv: new Map() },
+  async open() {
+    try {
+      this.db = await new Promise((res, rej) => {
+        const r = indexedDB.open('quizreel-studio', 1);
+        r.onupgradeneeded = () => { r.result.createObjectStore('audio'); r.result.createObjectStore('kv'); };
+        r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+      });
+    } catch (e) { console.warn(e); toast('IndexedDB is unavailable – audio will only be kept until you close this tab.', 'warn', 6000); }
+  },
+  _run(store, mode, fn) {
+    return new Promise((res, rej) => {
+      const t = this.db.transaction(store, mode), rq = fn(t.objectStore(store));
+      t.oncomplete = () => res(rq ? rq.result : undefined); t.onerror = t.onabort = () => rej(t.error);
+    });
+  },
+  get(s, k)    { return this.db ? this._run(s, 'readonly',  o => o.get(k))     : Promise.resolve(this.mem[s].get(k)); },
+  put(s, k, v) { return this.db ? this._run(s, 'readwrite', o => o.put(v, k))  : (this.mem[s].set(k, v), Promise.resolve()); },
+  del(s, k)    { return this.db ? this._run(s, 'readwrite', o => o.delete(k))  : (this.mem[s].delete(k), Promise.resolve()); },
+  keys(s)      { return this.db ? this._run(s, 'readonly',  o => o.getAllKeys()) : Promise.resolve([...this.mem[s].keys()]); },
+  clear(s)     { return this.db ? this._run(s, 'readwrite', o => o.clear())    : (this.mem[s].clear(), Promise.resolve()); }
+};
+
+/* =====================================================================
+   2. STATE
+   ===================================================================== */
+const VOICES = [
+  ['Kore','Female · firm'],['Zephyr','Female · bright'],['Aoede','Female · breezy'],['Leda','Female · youthful'],['Sulafat','Female · warm'],
+  ['Puck','Male · upbeat'],['Charon','Male · informative'],['Orus','Male · firm'],['Fenrir','Male · excitable'],['Achird','Male · friendly'],['Algieba','Male · smooth']
+];
+const DEFAULTS = {
+  keys: ['', '', '', '', ''], voice: 'Kore', model: 'gemini-2.5-flash-preview-tts', lang: 'bn',
+  ratio: 'landscape', theme: 'edu', timer: 'ring', tickVol: .6, voiceVol: 1,
+  showCounter: true, autoFs: false, outro: 'ধন্যবাদ! 🎉'
+};
+let S = { ...DEFAULTS, ...LS.get('qr_settings', {}) };
+S.keys = [...(S.keys || []), '', '', '', '', ''].slice(0, 5);
+const saveSettings = () => LS.set('qr_settings', S);
+
+let quizzes   = LS.get('qr_quizzes', []);      // [{id,title,created,updated,questions[]}]
+let currentId = LS.get('qr_current', null);
+let editingId = null;
+let bgData    = null;                          // custom background (data URL)
+const cur = () => quizzes.find(q => q.id === currentId) || null;
+
+const TEMPLATE = `[
+  {
+    "question": "বাংলাদেশের জাতীয় ফলের নাম কি?",
+    "options": ["আম", "কাঁঠাল", "লিচু", "পেঁপে"],
+    "answer": "কাঁঠাল",
+    "time": 8
+  },
+  {
+    "question": "একটি সপ্তাহে কয়টি দিন?",
+    "options": ["৫", "৬", "৭", "৮"],
+    "answer": "৭",
+    "time": 6
+  }
+]`;
+const SAMPLE = [
+  { question: 'বাংলাদেশের জাতীয় ফলের নাম কি?', options: ['আম', 'কাঁঠাল', 'লিচু', 'পেঁপে'], answer: 'কাঁঠাল', time: 8 },
+  { question: 'বাংলাদেশের রাজধানীর নাম কি?', options: ['চট্টগ্রাম', 'ঢাকা', 'খুলনা', 'সিলেট'], answer: 'ঢাকা', time: 6 },
+  { question: 'সূর্য কোন দিকে ওঠে?', options: ['পূর্ব', 'পশ্চিম', 'উত্তর', 'দক্ষিণ'], answer: 'পূর্ব', time: 6 },
+  { question: 'একটি সপ্তাহে কয়টি দিন?', options: ['৫', '৬', '৭', '৮'], answer: '৭', time: 5 },
+  { question: 'পানির রাসায়নিক সংকেত কোনটি?', options: ['CO₂', 'H₂O', 'O₂', 'NaCl'], answer: 'H₂O', time: 8 }
+];
+
+/* =====================================================================
+   3. QUIZ VALIDATION
+   Accepts an array (or {questions:[…]}) and returns normalised questions.
+   ===================================================================== */
+function parseQuiz(raw) {
+  let data;
+  try { data = JSON.parse(raw.replace(/^\uFEFF/, '')); }
+  catch (e) { return { ok: false, errors: ['Invalid JSON – ' + e.message] }; }
+  if (data && !Array.isArray(data) && Array.isArray(data.questions)) data = data.questions;
+  if (!Array.isArray(data) || !data.length) return { ok: false, errors: ['Expected a non-empty array of questions.'] };
+
+  const errors = [];
+  const questions = data.map((q, i) => {
+    const n = i + 1;
+    if (!q || typeof q !== 'object') { errors.push(`Q${n}: must be an object.`); return null; }
+    const question = String(q.question ?? '').trim();
+    if (!question) errors.push(`Q${n}: "question" is missing.`);
+    const options = (Array.isArray(q.options) ? q.options : []).map(o => String(o).trim());
+    if (options.length < 2 || options.length > 6) errors.push(`Q${n}: "options" needs 2–6 items.`);
+    if (options.some(o => !o)) errors.push(`Q${n}: an option is empty.`);
+    const ans = String(q.answer ?? '').trim();
+    const answer = options.find(o => o === ans) || options.find(o => o.toLowerCase() === ans.toLowerCase());
+    if (!answer) errors.push(`Q${n}: "answer" must match one of the options.`);
+    const time = q.time === undefined ? 10 : Number(q.time);
+    if (!(time >= 1 && time <= 300)) errors.push(`Q${n}: "time" must be 1–300 seconds.`);
+    return { question, options, answer, time: Math.round(time) };
+  });
+  return { ok: !errors.length, errors, questions };
+}
+
+/* =====================================================================
+   4. QUIZ INPUT TAB + LIBRARY (CRUD)
+   ===================================================================== */
+function showVal(res) {
+  const box = $('#valMsg');
+  if (res.ok) {
+    const secs = res.questions.reduce((a, q) => a + q.time, 0);
+    box.innerHTML = `<div class="msg ok">✓ ${res.questions.length} questions valid · ${secs}s of countdown</div>`;
+  } else {
+    const list = res.errors.slice(0, 6).map(e => `<li>${escapeHtml(e)}</li>`).join('');
+    const more = res.errors.length > 6 ? `<li>…and ${res.errors.length - 6} more</li>` : '';
+    box.innerHTML = `<div class="msg err">Fix these first:<ul>${list}${more}</ul></div>`;
+  }
+}
+const escapeHtml = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+function saveQuiz() {
+  const raw = $('#jsonInput').value.trim();
+  if (!raw) return toast('Paste quiz JSON or upload a file first.', 'error');
+  const res = parseQuiz(raw); showVal(res);
+  if (!res.ok) return toast('Invalid quiz JSON – see the list below the editor.', 'error');
+  const now = Date.now();
+  let title = $('#quizTitle').value.trim() || `Untitled quiz ${quizzes.length + 1}`;
+  let q = editingId && quizzes.find(x => x.id === editingId);
+  if (q) { q.title = title; q.questions = res.questions; q.updated = now; }
+  else { q = { id: 'q' + now.toString(36), title, created: now, updated: now, questions: res.questions }; quizzes.unshift(q); }
+  LS.set('qr_quizzes', quizzes);
+  toast(editingId ? 'Quiz updated.' : 'Quiz saved.', 'success');
+  stopEditing(); setCurrent(q.id); renderLibrary();
+}
+
+function startEditing(id) {
+  const q = quizzes.find(x => x.id === id); if (!q) return;
+  editingId = id;
+  $('#quizTitle').value = q.title;
+  $('#jsonInput').value = JSON.stringify(q.questions, null, 2);
+  $('#editBannerText').textContent = `Editing “${q.title}”`;
+  $('#editBanner').hidden = false; $('#valMsg').innerHTML = '';
+  openTab('quiz');
+}
+function stopEditing() { editingId = null; $('#editBanner').hidden = true; $('#quizTitle').value = ''; $('#jsonInput').value = ''; $('#valMsg').innerHTML = ''; }
+
+function deleteQuiz(id) {
+  const q = quizzes.find(x => x.id === id); if (!q) return;
+  if (!confirm(`Delete “${q.title}”?`)) return;
+  quizzes = quizzes.filter(x => x.id !== id); LS.set('qr_quizzes', quizzes);
+  if (currentId === id) setCurrent(quizzes[0]?.id || null);
+  if (editingId === id) stopEditing();
+  renderLibrary(); toast('Quiz deleted.', 'info');
+}
+
+function renderLibrary() {
+  const box = $('#libList');
+  if (!quizzes.length) { box.innerHTML = '<div class="empty">No quizzes yet.<br>Save one from the Quiz tab and it will show up here.</div>'; return; }
+  box.innerHTML = quizzes.map(q => `
+    <div class="card qcard ${q.id === currentId ? 'current' : ''}" data-id="${q.id}">
+      <div class="grow"><h4>${escapeHtml(q.title)}</h4><div class="muted">${q.questions.length} questions · ${new Date(q.updated).toLocaleDateString()}</div></div>
+      <div class="acts">
+        <button class="btn sm" data-act="use">Use</button>
+        <button class="btn sm rec" data-act="play"><i data-lucide="play"></i>Record</button>
+        <button class="btn sm" data-act="edit" title="Edit"><i data-lucide="pencil"></i></button>
+        <button class="btn sm danger" data-act="del" title="Delete"><i data-lucide="trash-2"></i></button>
+      </div>
+    </div>`).join('');
+  icons();
+}
+
+function setCurrent(id) {
+  currentId = id; LS.set('qr_current', id); renderLibrary(); updateHeader();
+  refreshCache(); showIdle();
+}
+function updateHeader() {
+  const q = cur();
+  $('#curTitle').textContent = q ? q.title : 'No quiz selected';
+  $('#curMeta').textContent = q ? `${q.questions.length} questions · ~${q.questions.reduce((a, x) => a + x.time, 0)}s of countdown` : '';
+}
+
+/* =====================================================================
+   5. TABS + DESIGN CONTROLS
+   ===================================================================== */
+function openTab(name) {
+  $$('.tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === name));
+  $$('.tab').forEach(t => t.hidden = t.id !== 'tab-' + name);
+}
+
+const stage = $('#stage'), wrap = $('#stageWrap');
+let running = false;
+
+function applyDesign() {
+  const keep = ['running', 'static', 'flash'].filter(c => stage.classList.contains(c));
+  stage.className = `stage theme-${S.theme} ratio-${S.ratio} ${keep.join(' ')}`;
+  stage.dataset.timer = S.timer;
+  $('#bgimg').style.backgroundImage = bgData ? `url(${bgData})` : '';
+  $$('#segRatio button').forEach(b => b.setAttribute('aria-pressed', b.dataset.ratio === S.ratio));
+  $$('#swThemes button').forEach(b => b.setAttribute('aria-pressed', b.dataset.theme === S.theme));
+  $$('#segTimer button').forEach(b => b.setAttribute('aria-pressed', b.dataset.timer === S.timer));
+  $('#optCounter').checked = S.showCounter; $('#optFs').checked = S.autoFs; $('#optOutro').value = S.outro;
+  $('#volVoice').value = S.voiceVol; $('#volTick').value = S.tickVol;
+  fitStage();
+}
+
+/** Size the stage to the chosen ratio inside its wrapper (also in fullscreen). */
+function fitStage() {
+  const w = wrap.clientWidth, h = wrap.clientHeight; if (!w || !h) return;
+  const r = S.ratio === 'portrait' ? 9 / 16 : 16 / 9;
+  let sw = w, sh = w / r; if (sh > h) { sh = h; sw = h * r; }
+  stage.style.width = Math.floor(sw) + 'px'; stage.style.height = Math.floor(sh) + 'px';
+}
+new ResizeObserver(fitStage).observe(wrap);
+document.addEventListener('fullscreenchange', () => { fitStage(); });
+document.addEventListener('webkitfullscreenchange', () => { fitStage(); });
+
+function toggleFullscreen() {
+  const fs = document.fullscreenElement || document.webkitFullscreenElement;
+  if (fs) return (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+  const req = wrap.requestFullscreen || wrap.webkitRequestFullscreen;
+  if (!req) return toast('Fullscreen is not supported on this browser.', 'warn');
+  req.call(wrap).catch?.(() => toast('Could not enter fullscreen.', 'error'));
+}
+
+/** Downscale uploaded images so they stay small in storage. */
+function loadBackground(file) {
+  const img = new Image(), url = URL.createObjectURL(file);
+  img.onload = async () => {
+    const k = Math.min(1, 1920 / Math.max(img.width, img.height));
+    const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    bgData = c.toDataURL('image/jpeg', .85); URL.revokeObjectURL(url);
+    await DB.put('kv', 'bg', bgData);
+    S.theme = 'custom'; saveSettings(); applyDesign(); showIdle(); toast('Background applied.', 'success');
+  };
+  img.onerror = () => toast('That file is not a readable image.', 'error');
+  img.src = url;
+}
+
+/* =====================================================================
+   6. API KEYS + VOICE UI
+   ===================================================================== */
+let genRun = null;   // state of the current/last generation run (for key status chips)
+
+function buildKeyInputs() {
+  $('#keyList').innerHTML = S.keys.map((k, i) => `
+    <div class="keyrow">
+      <span class="n">${i + 1}</span>
+      <input type="password" data-key="${i}" placeholder="AIza… (key ${i + 1})" value="${escapeHtml(k)}" autocomplete="off" spellcheck="false">
+      <button class="btn sm ghost" data-eye="${i}" title="Show / hide"><i data-lucide="eye"></i></button>
+      <div class="kstat" id="kstat${i}"></div>
+    </div>`).join('');
+  $('#voiceSel').innerHTML = VOICES.map(([v, d]) => `<option value="${v}">${v} – ${d}</option>`).join('');
+  $('#voiceSel').value = S.voice; $('#modelSel').value = S.model; $('#langSel').value = S.lang;
+  renderKeyStatus(); icons();
+}
+
+function renderKeyStatus() {
+  S.keys.forEach((k, i) => {
+    const el = $('#kstat' + i); if (!el) return;
+    const ks = genRun && genRun.ks.find(x => x.slot === i + 1);
+    let txt = 'Ready', cls = '';
+    if (!k.trim()) txt = 'Empty';
+    else if (ks) {
+      if (ks.dead) { txt = 'Rejected – ' + ks.last; cls = 'bad'; }
+      else if (ks.coolUntil > Date.now()) { txt = 'Rate-limited – cooling down'; cls = 'cool'; }
+      else if (genRun.active === i + 1) { txt = `In use · ${ks.ok} ok · ${ks.fail} failed`; cls = 'use'; }
+      else txt = `Standby · ${ks.ok} ok · ${ks.fail} failed`;
+    }
+    el.textContent = txt; el.className = 'kstat ' + cls;
+  });
+}
+
+/* =====================================================================
+   7. AUDIO TASKS (what needs to be spoken)
+   ===================================================================== */
+const labels = () => S.lang === 'en'
+  ? { opt: 'Option', ans: 'Correct answer', sep: '.' }
+  : { opt: 'অপশন', ans: 'সঠিক উত্তর', sep: '।' };
+const numLabel = k => S.lang === 'en' ? String(k + 1) : toBn(k + 1);
+const LETTERS = () => S.lang === 'en' ? ['A', 'B', 'C', 'D', 'E', 'F'] : ['ক', 'খ', 'গ', 'ঘ', 'ঙ', 'চ'];
+
+/** Question + options audio. "অপশন" is only SPOKEN – never drawn on screen. */
+function qAudioText(q) {
+  const l = labels(), end = s => /[?!।.]$/.test(s) ? s : s + l.sep;
+  return [end(q.question), ...q.options.map((o, k) => end(`${l.opt} ${numLabel(k)}: ${o}`))].join(' ');
+}
+const aAudioText = q => `${labels().ans}: ${q.answer}`;
+
+function tasksFor(quiz) {
+  const t = [];
+  quiz.questions.forEach((q, qi) => {
+    for (const [kind, text] of [['q', qAudioText(q)], ['a', aAudioText(q)]])
+      t.push({ qi, kind, text, key: 'a_' + hash(`${S.model}|${S.voice}|${text}`) });
+  });
+  return t;
+}
+
+let cached = new Set(), failed = new Set(), genKey = null, genCtl = null;
+async function refreshCache() {
+  cached = new Set(await DB.keys('audio'));
+  renderAudioList();
+  try {
+    const est = await navigator.storage?.estimate?.();
+    $('#cacheInfo').textContent = `${cached.size} clips stored` + (est ? ` · ${(est.usage / 1048576).toFixed(1)} MB used by this site` : '');
+  } catch { $('#cacheInfo').textContent = `${cached.size} clips stored`; }
+}
+
+function renderAudioList() {
+  const quiz = cur(), box = $('#audioList');
+  if (!quiz) { box.innerHTML = ''; $('#genSummary').textContent = ''; $('#genLabel').textContent = 'Generate audio'; return; }
+  const tasks = tasksFor(quiz), missing = tasks.filter(t => !cached.has(t.key)).length;
+  $('#genSummary').textContent = `${tasks.length - missing}/${tasks.length} clips ready`;
+  $('#genLabel').textContent = missing ? `Generate audio (${missing} missing)` : 'Audio ready ✓';
+  const chip = t => {
+    const s = cached.has(t.key) ? ['ok', '✓'] : failed.has(t.key) ? ['fail', 'failed'] : genKey === t.key ? ['gen', 'generating…'] : ['', 'waiting'];
+    return `<span class="chip ${s[0]}">${t.kind === 'q' ? 'Question' : 'Answer'} ${s[1]}</span>`;
+  };
+  box.innerHTML = quiz.questions.map((q, i) => {
+    const [a, b] = tasks.filter(t => t.qi === i);
+    return `<div class="arow"><b>${i + 1}</b><span class="t">${escapeHtml(q.question)}</span>${chip(a)}${chip(b)}</div>`;
+  }).join('');
+}
+
+/* =====================================================================
+   8. GEMINI TTS + KEY LOAD-BALANCING PIPELINE
+   ===================================================================== */
+const mkErr = (msg, kind) => Object.assign(new Error(msg), { kind });
+
+/** Gemini returns raw 16-bit PCM (usually 24 kHz mono) → wrap it in a WAV header. */
+function pcmToWav(pcm, rate) {
+  const buf = new ArrayBuffer(44 + pcm.length), v = new DataView(buf);
+  const w = (o, s) => [...s].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+  w(0, 'RIFF'); v.setUint32(4, 36 + pcm.length, true); w(8, 'WAVE'); w(12, 'fmt ');
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+  w(36, 'data'); v.setUint32(40, pcm.length, true); new Uint8Array(buf, 44).set(pcm);
+  return buf;
+}
+const b64ToBytes = b64 => Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+
+async function requestTTS(text, key, signal) {
+  const ctl = new AbortController(), to = setTimeout(() => ctl.abort(), 60000);
+  const onAbort = () => ctl.abort(); signal.addEventListener('abort', onAbort, { once: true });
+  let res;
+  try {
+    res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(S.model)}:generateContent?key=${encodeURIComponent(key)}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: ctl.signal,
+      body: JSON.stringify({
+        contents: [{ parts: [{ text }] }],
+        generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: S.voice } } } }
+      })
+    });
+  } catch (e) {
+    if (signal.aborted) throw abortErr();
+    throw mkErr(ctl.signal.aborted ? 'Request timed out' : 'Network error', 'net');
+  } finally { clearTimeout(to); signal.removeEventListener('abort', onAbort); }
+
+  let data = null; try { data = await res.json(); } catch {}
+  if (!res.ok) {
+    const msg = (data?.error?.message || 'HTTP ' + res.status).slice(0, 140);
+    const kind = res.status === 429 ? 'quota' : (res.status === 401 || res.status === 403 || /api key/i.test(msg)) ? 'auth' : 'other';
+    throw mkErr(msg, kind);
+  }
+  const part = data?.candidates?.[0]?.content?.parts?.find(p => p.inlineData?.data);
+  if (!part) throw mkErr('The API returned no audio', 'empty');
+  const rate = +(/rate=(\d+)/.exec(part.inlineData.mimeType || '')?.[1] || 24000);
+  return pcmToWav(b64ToBytes(part.inlineData.data), rate);
+}
+
+/**
+ * Try the active key first; on failure fall through to the next key.
+ *  - 3 s pause after every failed attempt (rate-limit protection)
+ *  - quota (429) → key rests for 65 s; auth error → key is dropped for this run
+ *  - if every key is only resting, wait for the earliest one to recover
+ */
+async function requestWithFallback(text, run) {
+  let lastErr = null;
+  for (let round = 0; round < 2; round++) {
+    const n = run.ks.length;
+    for (let a = 0; a < n; a++) {
+      const idx = (run.keyIdx + a) % n, ks = run.ks[idx];
+      if (ks.dead || ks.coolUntil > Date.now()) continue;
+      run.active = ks.slot; renderKeyStatus(); setGenText(`Requesting with key ${ks.slot}…`);
+      try {
+        const wav = await requestTTS(text, ks.key, run.signal);
+        ks.ok++; run.keyIdx = idx; renderKeyStatus(); return wav;
+      } catch (e) {
+        if (e.name === 'AbortError') throw e;
+        ks.fail++; ks.last = e.message; lastErr = e;
+        if (e.kind === 'auth') ks.dead = true;
+        if (e.kind === 'quota') ks.coolUntil = Date.now() + 65000;
+        renderKeyStatus();
+        toast(`Key ${ks.slot}: ${e.message}`, e.kind === 'auth' ? 'error' : 'warn', 5000);
+        await sleep(3000, run.signal);           // 3 s gap before the next attempt
+      }
+    }
+    const cooling = run.ks.filter(k => !k.dead && k.coolUntil > Date.now());
+    if (!cooling.length) break;
+    const wait = Math.min(...cooling.map(k => k.coolUntil)) - Date.now();
+    for (let left = wait; left > 0; left -= 1000) { setGenText(`All keys rate-limited – retrying in ${Math.ceil(left / 1000)}s…`); await sleep(Math.min(1000, left), run.signal); }
+  }
+  throw lastErr || new Error('No usable API key');
+}
+
+const setGenText = t => $('#genText').textContent = t;
+function setProgress(done, total, text) { $('#genBar').style.width = (total ? done / total * 100 : 0) + '%'; if (text) setGenText(`${done}/${total} · ${text}`); }
+function setBusy() {
+  const busy = !!genCtl || running;
+  $('#genBtn').disabled = busy || false; $('#recBtn').disabled = busy; $('#prevBtn').disabled = busy;
+  $('#stopBtn').hidden = !(genCtl || running);
+  $('#stopBtn').lastChild.textContent = genCtl ? 'Cancel' : 'Stop';
+}
+
+async function generateAudio() {
+  if (genCtl || running) return;
+  const quiz = cur(); if (!quiz) return toast('Select or save a quiz first.', 'error');
+  const keys = S.keys.map((k, i) => ({ key: k.trim(), slot: i + 1 })).filter(x => x.key);
+  await refreshCache();
+  const todo = tasksFor(quiz).filter(t => !cached.has(t.key));
+  if (!todo.length) return toast('All voice-overs are already cached.', 'success');
+  if (!keys.length) { toast('Add at least one Google AI Studio API key first.', 'error'); return openTab('api'); }
+
+  genCtl = new AbortController(); failed.clear();
+  const run = genRun = { signal: genCtl.signal, keyIdx: 0, active: null, ks: keys.map(k => ({ ...k, ok: 0, fail: 0, coolUntil: 0, dead: false, last: '' })) };
+  setBusy(); let processed = 0;
+  try {
+    for (let i = 0; i < todo.length; i++) {
+      const t = todo[i]; genKey = t.key; renderAudioList();
+      setProgress(processed, todo.length, `Question ${t.qi + 1} – ${t.kind === 'q' ? 'question + options' : 'answer'}`);
+      try {
+        const wav = await requestWithFallback(t.text, run);
+        await DB.put('audio', t.key, { wav, text: t.text });
+        cached.add(t.key); processed++; setProgress(processed, todo.length, 'Saved');
+        if (i < todo.length - 1)                      // 5 s cooldown after every success
+          for (let left = 5000; left > 0; left -= 1000) { setGenText(`${processed}/${todo.length} · cooldown ${Math.ceil(left / 1000)}s…`); await sleep(1000, run.signal); }
+      } catch (e) {
+        if (e.name === 'AbortError') throw e;
+        failed.add(t.key); processed++;
+        toast(`Question ${t.qi + 1} (${t.kind === 'q' ? 'question' : 'answer'}) failed: ${e.message}`, 'error', 6500);
+        if (run.ks.every(k => k.dead)) break;         // every key rejected → no point continuing
+        await sleep(3000, run.signal);
+      }
+    }
+    if (failed.size) toast(`${failed.size} clip(s) failed. Press Generate audio again to retry them.`, 'warn', 6500);
+    else toast('All voice-overs are ready. You can start recording.', 'success');
+  } catch (e) {
+    if (e.name === 'AbortError') toast('Audio generation cancelled.', 'info'); else toast(e.message, 'error');
+  } finally {
+    genCtl = null; genKey = null; run.active = null; setBusy(); setGenText('Idle.'); renderKeyStatus(); refreshCache();
+  }
+}
+
+/* =====================================================================
+   9. AUDIO ENGINE (playback + tick-tock synth)
+   ===================================================================== */
+let ctx = null, voiceGain, tickGain;
+const decoded = new Map();
+
+function ensureAudio() {
+  if (!ctx) {
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    voiceGain = ctx.createGain(); tickGain = ctx.createGain();
+    voiceGain.connect(ctx.destination); tickGain.connect(ctx.destination);
+  }
+  voiceGain.gain.value = S.voiceVol; tickGain.gain.value = S.tickVol;
+  if (ctx.state === 'suspended') ctx.resume();
+}
+
+async function getBuffer(key) {
+  if (decoded.has(key)) return decoded.get(key);
+  const rec = await DB.get('audio', key); if (!rec) return null;
+  const buf = await ctx.decodeAudioData(rec.wav.slice(0));   // slice: decode detaches the buffer
+  decoded.set(key, buf); return buf;
+}
+
+function playVoice(buffer, signal) {
+  return new Promise((res, rej) => {
+    const src = ctx.createBufferSource(); src.buffer = buffer; src.connect(voiceGain);
+    const stop = () => { try { src.stop(); } catch {} rej(abortErr()); };
+    signal.addEventListener('abort', stop, { once: true });
+    src.onended = () => { signal.removeEventListener('abort', stop); res(); };
+    src.start();
+  });
+}
+
+/** One clock "click": short pitched-down triangle burst. */
+function click(t, freq) {
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = 'triangle'; o.frequency.setValueAtTime(freq, t); o.frequency.exponentialRampToValueAtTime(freq * .6, t + .05);
+  g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(1, t + .004); g.gain.exponentialRampToValueAtTime(.0001, t + .09);
+  o.connect(g); g.connect(tickGain); o.start(t); o.stop(t + .1); return o;
+}
+/** Schedules alternating tick / tock on the audio clock (sample-accurate), cancellable. */
+function scheduleTicks(start, secs, signal) {
+  const nodes = [];
+  for (let i = 0; i < secs; i++) nodes.push(click(start + i, i % 2 === 0 ? 1500 : 950));
+  signal.addEventListener('abort', () => nodes.forEach(o => { try { o.stop(); } catch {} }), { once: true });
+}
+
+/* =====================================================================
+   10. STAGE RENDERING
+   ===================================================================== */
+const tbox = $('#tbox');
+const fmtClock = s => String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+
+function overlay(title, sub = '') { $('#ovTitle').textContent = title; $('#ovSub').textContent = sub; $('#overlay').classList.add('show'); }
+const hideOverlay = () => $('#overlay').classList.remove('show');
+
+/** Draws one question. demo=true → static preview (all visible, no animation). */
+function renderQuestion(q, i, n, { demo = false } = {}) {
+  stage.classList.toggle('static', demo); stage.classList.remove('revealed', 'flash');
+  const badge = $('#qBadge');
+  badge.textContent = S.lang === 'en' ? `Question ${i + 1}/${n}` : `প্রশ্ন ${toBn(i + 1)}/${toBn(n)}`;
+  badge.classList.toggle('off', !S.showCounter);
+
+  const len = q.question.length, maxOpt = Math.max(...q.options.map(o => o.length));
+  stage.style.setProperty('--qscale', len > 170 ? .6 : len > 110 ? .72 : len > 60 ? .86 : 1);
+  stage.style.setProperty('--oscale', maxOpt > 60 ? .7 : maxOpt > 34 ? .85 : 1);
+
+  const qt = $('#qText'); qt.textContent = q.question;
+  qt.classList.remove('in'); void qt.offsetWidth; qt.classList.add('in');
+
+  const L = LETTERS(), box = $('#qOptions'); box.innerHTML = '';
+  q.options.forEach((o, k) => {
+    const d = document.createElement('div');
+    d.className = 'opt show'; d.style.setProperty('--i', k);
+    d.innerHTML = '<span class="key"></span><span class="txt"></span>';
+    d.firstChild.textContent = L[k]; d.lastChild.textContent = o;
+    if (o === q.answer) d.dataset.correct = '1';
+    box.appendChild(d);
+  });
+
+  tbox.classList.remove('on', 'urgent'); $('#barTrack').classList.remove('on');
+  if (demo) { updateTimer(q.time, q.time); tbox.classList.add('on'); $('#barTrack').classList.add('on'); }
+}
+
+function showTimer(total) { updateTimer(total, total); tbox.classList.add('on'); $('#barTrack').classList.add('on'); }
+
+function updateTimer(rem, total) {
+  const frac = Math.max(0, Math.min(1, rem / total)), sec = Math.ceil(rem - 1e-6);
+  $$('.tnum', tbox).forEach(e => e.textContent = sec);
+  $('.tdig', tbox).textContent = fmtClock(sec);
+  $('#ringProg').style.strokeDashoffset = 100 * (1 - frac);
+  $('#pie').style.setProperty('--p', frac);
+  $('#barFill').style.width = frac * 100 + '%';
+  tbox.classList.toggle('urgent', sec <= 3 && sec > 0);
+}
+
+function revealAnswer() {
+  $$('#qOptions .opt').forEach(o => o.classList.add(o.dataset.correct ? 'correct' : 'wrong'));
+  tbox.classList.remove('on', 'urgent'); $('#barTrack').classList.remove('on');
+  stage.classList.add('revealed');
+  if (S.theme === 'horror') { stage.classList.remove('flash'); void stage.offsetWidth; stage.classList.add('flash'); } else confetti();
+}
+
+function confetti() {
+  const c = $('#confetti'), cols = ['#ffd23f', '#ff5fa2', '#4fd1ff', '#7cf29a', '#ffffff'];
+  for (let i = 0; i < 44; i++) {
+    const s = document.createElement('i');
+    s.style.cssText = `left:${Math.random() * 100}%;background:${cols[i % 5]};--dx:${(Math.random() - .5) * 30}cqw;--r:${Math.random() * 720}deg;` +
+      `animation-delay:${Math.random() * .3}s;animation-duration:${1.6 + Math.random() * 1.2}s;width:${.8 + Math.random()}cqw;height:${1.4 + Math.random() * 1.4}cqw`;
+    c.appendChild(s);
+  }
+  setTimeout(() => c.innerHTML = '', 3400);
+}
+
+/** What the stage shows when nothing is running: a static preview of question 1. */
+function showIdle() {
+  if (running) return;
+  $('#pre').classList.remove('show'); $('#confetti').innerHTML = '';
+  const quiz = cur();
+  if (!quiz) { overlay('QuizReel Studio', 'Paste or upload quiz JSON to begin'); return; }
+  hideOverlay(); renderQuestion(quiz.questions[0], 0, quiz.questions.length, { demo: true });
+}
+
+/* =====================================================================
+   11. PRESENTATION TIMELINE
+   3 s buffer → per question:
+     reveal + voice(question+options) → 1 s → countdown + tick-tock → 1 s
+     → reveal answer + voice(answer) → 1 s → next
+   ===================================================================== */
+let runCtl = null, wakeLock = null;
+
+function countdown(total, signal) {
+  return new Promise((res, rej) => {
+    const start = ctx.currentTime + .05;              // audio clock drives BOTH sound and visuals → always in sync
+    scheduleTicks(start, total, signal); showTimer(total);
+    const id = setInterval(() => {
+      if (signal.aborted) { clearInterval(id); return rej(abortErr()); }
+      const rem = Math.min(total, Math.max(0, total - (ctx.currentTime - start)));
+      updateTimer(rem, total);
+      if (rem <= 0) { clearInterval(id); res(); }
+    }, 30);
+  });
+}
+
+async function speak(task, signal, preview) {
+  const buf = await getBuffer(task.key);
+  if (buf) return playVoice(buf, signal);
+  if (!preview) throw new Error('A voice-over clip is missing – generate audio again.');
+  return sleep(Math.max(1500, task.text.length * 65), signal);     // silent stand-in for Preview
+}
+
+async function startRun(preview) {
+  if (running || genCtl) return;
+  const quiz = cur(); if (!quiz) return toast('Select or save a quiz first.', 'error');
+  await refreshCache();
+  const tasks = tasksFor(quiz), missing = tasks.filter(t => !cached.has(t.key)).length;
+  if (!preview && missing) { toast(`${missing} voice-over clip(s) missing. Generate audio before recording.`, 'error', 5500); return; }
+
+  ensureAudio();                                        // must happen inside the click gesture
+  if (S.autoFs && !(document.fullscreenElement || document.webkitFullscreenElement)) toggleFullscreen();
+  running = true; runCtl = new AbortController(); const signal = runCtl.signal; setBusy();
+  try { wakeLock = await navigator.wakeLock?.request('screen'); } catch {}
+  stage.classList.add('running'); hideOverlay(); $('#confetti').innerHTML = '';
+
+  try {
+    // Pre-decode everything so nothing stutters mid-recording.
+    if (!preview) await Promise.all(tasks.map(t => getBuffer(t.key)));
+
+    // ---- 3-second pre-start buffer ----
+    $('#preLbl').textContent = preview ? 'Preview starting…' : (S.lang === 'en' ? 'Recording starts in…' : 'শুরু হচ্ছে…');
+    $('#pre').classList.add('show');
+    for (let s = 3; s >= 1; s--) {
+      const n = $('#preNum'); n.textContent = S.lang === 'en' ? s : toBn(s);
+      n.style.animation = 'none'; void n.offsetWidth; n.style.animation = '';
+      await sleep(1000, signal);
+    }
+    $('#pre').classList.remove('show');
+
+    for (let i = 0; i < quiz.questions.length; i++) {
+      const q = quiz.questions[i], [tq, ta] = tasks.filter(t => t.qi === i);
+      renderQuestion(q, i, quiz.questions.length);       // reveal question + options (animated)
+      await speak(tq, signal, preview);                  // voice plays while animations run
+      await sleep(1000, signal);
+      await countdown(q.time, signal);                   // clock + tick-tock
+      await sleep(1000, signal);
+      revealAnswer();
+      await speak(ta, signal, preview);
+      await sleep(1000, signal);
+    }
+    // ---- closing card ----
+    tbox.classList.remove('on'); overlay(S.outro || 'ধন্যবাদ!'); if (S.theme !== 'horror') confetti();
+    toast(preview ? 'Preview finished.' : 'Finished. You can stop your screen recording.', 'success');
+  } catch (e) {
+    if (e.name === 'AbortError') toast('Stopped.', 'info'); else toast(e.message, 'error', 6000);
+    $('#pre').classList.remove('show');
+  } finally {
+    try { wakeLock?.release(); } catch {} wakeLock = null;
+    running = false; runCtl = null; stage.classList.remove('running'); setBusy();
+    if (!$('#overlay').classList.contains('show')) showIdle();
+  }
+}
+
+function stopAll() {
+  if (genCtl) genCtl.abort();
+  if (runCtl) runCtl.abort();
+}
+
+/* =====================================================================
+   12. EVENT WIRING + INIT
+   ===================================================================== */
+function bindUI() {
+  // tabs
+  $$('.tabs button').forEach(b => b.addEventListener('click', () => openTab(b.dataset.tab)));
+
+  // quiz input
+  $('#tplPre').textContent = TEMPLATE;
+  $('#copyTpl').onclick = async () => { await copyText(TEMPLATE); toast('Template copied.', 'success', 2000); };
+  $('#uploadBtn').onclick = () => $('#fileInput').click();
+  $('#fileInput').onchange = async e => {
+    const f = e.target.files[0]; if (!f) return;
+    try {
+      $('#jsonInput').value = await f.text();
+      if (!$('#quizTitle').value) $('#quizTitle').value = f.name.replace(/\.json$/i, '');
+      showVal(parseQuiz($('#jsonInput').value));
+    } catch { toast('Could not read that file.', 'error'); }
+    e.target.value = '';
+  };
+  $('#sampleBtn').onclick = () => { $('#jsonInput').value = JSON.stringify(SAMPLE, null, 2); if (!$('#quizTitle').value) $('#quizTitle').value = 'নমুনা কুইজ'; showVal(parseQuiz($('#jsonInput').value)); };
+  $('#validateBtn').onclick = () => { const raw = $('#jsonInput').value.trim(); if (!raw) return toast('Nothing to validate yet.', 'warn'); const r = parseQuiz(raw); showVal(r); if (!r.ok) toast('Quiz JSON has problems.', 'error'); };
+  $('#saveBtn').onclick = saveQuiz;
+  $('#cancelEdit').onclick = stopEditing;
+
+  // library
+  $('#libList').addEventListener('click', e => {
+    const b = e.target.closest('[data-act]'); if (!b) return;
+    const id = b.closest('.qcard').dataset.id;
+    ({ use: () => setCurrent(id), play: () => { setCurrent(id); startRun(false); }, edit: () => startEditing(id), del: () => deleteQuiz(id) })[b.dataset.act]();
+  });
+
+  // design
+  $$('#segRatio button').forEach(b => b.onclick = () => { S.ratio = b.dataset.ratio; saveSettings(); applyDesign(); showIdle(); });
+  $$('#swThemes button').forEach(b => b.onclick = () => {
+    S.theme = b.dataset.theme; saveSettings(); applyDesign(); showIdle();
+    if (S.theme === 'custom' && !bgData) toast('Upload a background image to use this theme.', 'info');
+  });
+  $$('#segTimer button').forEach(b => b.onclick = () => { S.timer = b.dataset.timer; saveSettings(); applyDesign(); showIdle(); });
+  $('#bgBtn').onclick = () => $('#bgInput').click();
+  $('#bgInput').onchange = e => { if (e.target.files[0]) loadBackground(e.target.files[0]); e.target.value = ''; };
+  $('#bgClear').onclick = async () => { bgData = null; await DB.del('kv', 'bg'); if (S.theme === 'custom') S.theme = 'edu'; saveSettings(); applyDesign(); showIdle(); };
+  $('#optCounter').onchange = e => { S.showCounter = e.target.checked; saveSettings(); showIdle(); };
+  $('#optFs').onchange = e => { S.autoFs = e.target.checked; saveSettings(); };
+  $('#optOutro').oninput = e => { S.outro = e.target.value; saveSettings(); };
+  $('#volVoice').oninput = e => { S.voiceVol = +e.target.value; if (voiceGain) voiceGain.gain.value = S.voiceVol; saveSettings(); };
+  $('#volTick').oninput = e => { S.tickVol = +e.target.value; if (tickGain) tickGain.gain.value = S.tickVol; saveSettings(); };
+
+  // api & voice
+  $('#keyList').addEventListener('input', e => { const i = e.target.dataset.key; if (i === undefined) return; S.keys[+i] = e.target.value.trim(); saveSettings(); renderKeyStatus(); });
+  $('#keyList').addEventListener('click', e => {
+    const b = e.target.closest('[data-eye]'); if (!b) return;
+    const inp = $(`[data-key="${b.dataset.eye}"]`); inp.type = inp.type === 'password' ? 'text' : 'password';
+  });
+  $('#voiceSel').onchange = e => { S.voice = e.target.value; saveSettings(); refreshCache(); };
+  $('#modelSel').onchange = e => { S.model = e.target.value; saveSettings(); refreshCache(); };
+  $('#langSel').onchange  = e => { S.lang = e.target.value; saveSettings(); refreshCache(); showIdle(); };
+  $('#clearCache').onclick = async () => { if (!confirm('Delete all cached voice-overs?')) return; await DB.clear('audio'); decoded.clear(); await refreshCache(); toast('Audio cache cleared.', 'info'); };
+
+  // stage controls
+  $('#genBtn').onclick = generateAudio;
+  $('#recBtn').onclick = () => startRun(false);
+  $('#prevBtn').onclick = () => startRun(true);
+  $('#stopBtn').onclick = stopAll;
+  $('#fsBtn').onclick = toggleFullscreen;
+
+  document.addEventListener('keydown', e => {
+    if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+    if (e.key === 'f' || e.key === 'F') toggleFullscreen();
+    if (e.key === 's' || e.key === 'S') stopAll();
+  });
+}
+
+(async function init() {
+  await DB.open();
+  bgData = (await DB.get('kv', 'bg')) || null;
+  buildKeyInputs(); bindUI(); applyDesign();
+  if (!cur()) currentId = quizzes[0]?.id || null;
+  renderLibrary(); updateHeader(); await refreshCache(); showIdle(); icons();
+  if (!S.keys.some(k => k.trim())) setGenText('Add an API key in “API & Voice”, then generate audio.');
+})();
+</script>
+</body>
+</html>
